@@ -49,7 +49,7 @@ def kMeans(DM, n):
 	dE = 1
 	prev_err = 1
 	clusters = []
-	while dE > tol:
+	while dE > tol or k < 5:
 		clus = testK(k, DM, n)
 		clusters.append(clus[0])
 		dE = np.abs(prev_err - clus[1])
@@ -116,7 +116,7 @@ def testK(k, DM, n):
 	for col in range(n):
 		l.append(colors[clusterMe[col]])
 	
-	l = np.array(l, dtype='f').reshape([20, 20, 3])
+	l = np.array(l, dtype='f').reshape([30, 30, 3])
 	
 	# For testing purposes:
 	print("")
@@ -135,61 +135,37 @@ def testK(k, DM, n):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 def importData():
-    
-	# Get user-defined location
-	print("")
-	#lat = input("Enter a Latitude:  ")
-	#lon = input("Enter a Longitude: ")
-	
-	# Get current datetime
-	now = int(time.time())
-	print(now)
-	#start = 1369728000
-	#end = 1369789200
-	
-	n = noaa.NOAA()
-	observations = n.get_observations('15057','US',start='1369728000',end='1369789200')
-	for observation in observations:
-		print("")
-		print(observation)
-	
+
 	# Data import
-	#file = os.path.join('_test/20.png')
-	#API_Key = "00c59abbcf91d81f6c2c00eeeca50ab4"
-	#getMe = "http://history.openweathermap.org/data/2.5/history/city?lat={lat}&lon={lon}&type=hour&start={start}&end={end}"
-	#r = requests.get(getMe)
-	#r.encoding = "ISO-8859-1"
-	
-	#lenna = io.imread(file)
-	#shape = lenna.shape
+	file = os.path.join('_test/30.png')
+	lenna = io.imread(file)
+	shape = lenna.shape
 
 	# Contruction of data vectors to be used in the Diffusion Map
-	#x = []
-	#for i in range(0, shape[0]):
-	#	for j in range(0, shape[1]):
-	#		x.append([i, j, lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
-	
-	x=0		
-	
-	# ~~~~~~~~~~~~~ TEMPORARY FILE SAVE
-	#np.savetxt("./weatherData.txt", condition)
-	
+	x = []
+	for i in range(0, shape[0]):
+		for j in range(0, shape[1]):
+			x.append([i, j, lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
+			
 	return x
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 	
 if __name__ == "__main__":
+
+	# Start time for benchmarking the code
+	import time
+	start_me = time.time()
 	
 	# ~~~~~~~~~~~~~~~ TEMPORARY FIX: COMPLEX WARNING ISSUES IGNORED
 	import warnings
 	warnings.filterwarnings('ignore')
 	
 	# Python Library Imports
-	import os, requests, time
+	import os
 	import numpy as np
 	from skimage import io
-	from noaa_sdk import noaa
 	from matplotlib import pyplot as plt
 	from copy import deepcopy
 
@@ -201,31 +177,29 @@ if __name__ == "__main__":
 	# Gather the dataset
 	# ~~~~~~~ For now, use sample Image Data
 	x = importData()
-	exit()
+	
+	#input() #~~~~~~~~~~~~~~~~~~~~TEMPORARY BREAK
+	#os.exit
+	
 	n = len(x)
 	
 	# Update screen with current time
-	print(n)
-	print("Imports Retrieved")
-	
-	input() #~~~~~~~~~~~~~~~~~~~~TEMPORARY BREAK
-	quit()
+	print("")
+	print("Time for Imports:")
+	print(time.time() - start_me)
 	
 	# Compute a diffusion map from the data
 	DM = diffusionMap(x, n, m, t, sig)
 	
 	# Update screen with current time
 	print("")
-	print("Diffusion Map Calculated")
+	print("Time for Diffusion Map Calculation:")
+	print(time.time() - start_me)
 	
 	# Calculate "k" and clusters via k means
 	clusters = kMeans(DM, n)
 	
 	# Update screen with current time
 	print("")
-	print("K Means Calculated")
-	
-	# Update screen with current time
-	print("")
-	print("END PREDICTION")
-	print("")
+	print("Time for K Means Calculation:")
+	print(time.time() - start_me)
