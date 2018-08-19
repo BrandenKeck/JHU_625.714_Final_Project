@@ -15,8 +15,8 @@ def diffusionMap(x, n, m, t, sig, ny):
 		for j in range(0, ny):
 			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
 			A.append(dist)
-		if i%100 == 0:
-			print("Computation progress: " + str(int(100*n/i)) + "%")
+		if i%1000 == 0 and i!=0:
+			print("Computation progress: " + str(int(100*i/n)) + "%")
 	A = np.array(A).reshape([ny, ny])
 	Ainv = np.linalg.inv(A)
 	
@@ -26,15 +26,15 @@ def diffusionMap(x, n, m, t, sig, ny):
 		for j in range(0, ny):
 			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
 			B.append(dist)
-		if i%100 == 0:
-			print("Computation progress: " + str(int(100*n/i)) + "%")
+		if i%1000 == 0 and i!=0:
+			print("Computation progress: " + str(int(100*i/n)) + "%")
 	B = np.array(B).reshape([(n-ny), ny])
 	Btran = np.transpose(B)
 	
 	# Fill in the gaps via estimation of C and the overall matrix W
 	print("")
 	print("Estimating the rest of the matrix.  This will take a moment...")
-	C = np.matmul(B, np.matmul(Ainv, Btran))
+	C = tf.matmul(B, tf.matmul(Ainv, Btran))
 	W = np.concatenate((np.concatenate((A,Btran), axis=1), np.concatenate((B,C), axis=1)), axis=0)
 	
 	# Computation the diagonal matrix of row sums
@@ -42,7 +42,7 @@ def diffusionMap(x, n, m, t, sig, ny):
 	Dinv = np.linalg.inv(np.diag(d))
 	
 	# Creation of stochastic matrix M
-	M = np.matmul(Dinv, W)
+	M = tf.matmul(Dinv, W)
 	lam, evA = np.linalg.eig(M)
 
 	# Final diffusion map computation
@@ -153,7 +153,7 @@ def testK(k, DM, n, shape):
 def importData():
 
 	# Data import
-	file = os.path.join('_test/50.png')
+	file = os.path.join('_test/10.png')
 	lenna = io.imread(file)
 	shape = lenna.shape
 
@@ -183,16 +183,17 @@ if __name__ == "__main__":
 	# Python Library Imports
 	import os
 	import numpy as np
+	import tensorflow as tf
 	from skimage import io
 	from matplotlib import pyplot as plt
 	from copy import deepcopy
 
 	
 	# Adjustable model parameters
-	sig = 0.1; # Scaling parameter for Diffusion Map kernel
-	m = 5; # Number of eigenvalues to be included in Diffusion Map
-	t = 7; # Diffusion Map time step
-	Napp = 0.1 # Nystrom approximation factor
+	sig = 0.01; # Scaling parameter for Diffusion Map kernel
+	m = 3; # Number of eigenvalues to be included in Diffusion Map
+	t = 2; # Diffusion Map time step
+	Napp = 0.001 # Nystrom approximation factor
 	
 	
 	# Gather the dataset and Nystrom approximation parameter
