@@ -27,6 +27,8 @@ def diffusionMap(x, n, m, t, sig):
 	invD = np.linalg.inv(D)
 	A = np.matmul(invD, W)
 	lam, evA = np.linalg.eig(A)
+	print(lam)
+	input()
 
 	# Final diffusion map computation
 	DM = []

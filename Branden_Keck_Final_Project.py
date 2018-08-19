@@ -4,42 +4,58 @@
 ######################################################################################
 ######################################################################################
 
-
-def diffusionMap(x, n, m, t, sig):
-
-	# Construction of appropriate matrices for use in Diffusion Map algorithm
-	W = []
-	D = np.zeros([n, n])
-	for i in range(0, n):
-		dii = 0
-		for j in range(0, n):
+# Construction of the Diffusion Map via Nystrom Approximation
+def diffusionMap(x, n, m, t, sig, ny):
+	
+	print("") # Make room for benchmarking outputs...
+	
+	# Computation of the Sample matrix A
+	A = []
+	for i in range(0, ny):
+		for j in range(0, ny):
 			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
-			W.append(dist)
-			D[i,j] = 0
-			dii = dii + dist
-		D[i,i] = dii
-			
-	# Finalization of diffusion matrix
-	W = np.array(W)
-	W = W.reshape(n, n)
-
-	# Eigen solutions using numpy library
-	invD = np.linalg.inv(D)
-	A = np.matmul(invD, W)
-	lam, evA = np.linalg.eig(A)
+			A.append(dist)
+		if i%100 == 0:
+			print("Computation progress: " + str(int(100*n/i)) + "%")
+	A = np.array(A).reshape([ny, ny])
+	Ainv = np.linalg.inv(A)
+	
+	# Computation of the interaction between the remaining points and the sample
+	B = []
+	for i in range(ny, n):
+		for j in range(0, ny):
+			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
+			B.append(dist)
+		if i%100 == 0:
+			print("Computation progress: " + str(int(100*n/i)) + "%")
+	B = np.array(B).reshape([(n-ny), ny])
+	Btran = np.transpose(B)
+	
+	# Fill in the gaps via estimation of C and the overall matrix W
+	print("")
+	print("Estimating the rest of the matrix.  This will take a moment...")
+	C = np.matmul(B, np.matmul(Ainv, Btran))
+	W = np.concatenate((np.concatenate((A,Btran), axis=1), np.concatenate((B,C), axis=1)), axis=0)
+	
+	# Computation the diagonal matrix of row sums
+	d = np.sum(W, axis=0)
+	Dinv = np.linalg.inv(np.diag(d))
+	
+	# Creation of stochastic matrix M
+	M = np.matmul(Dinv, W)
+	lam, evA = np.linalg.eig(M)
 
 	# Final diffusion map computation
 	DM = []
 	for i in range(1,m+1):
 		DM.append(lam[i]**t * np.array(evA[:,i]))
-		
 	DM = np.array(DM)
 	return DM
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def kMeans(DM, n):
+def kMeans(DM, n, shape):
 	
 	# Begin with a k of 2 and step until an "elbow" is reached:
 	# Add a tolerance for the point in which error changes by too little to continue
@@ -49,8 +65,8 @@ def kMeans(DM, n):
 	dE = 1
 	prev_err = 1
 	clusters = []
-	while dE > tol:
-		clus = testK(k, DM, n)
+	while dE > tol or k < 5:
+		clus = testK(k, DM, n, shape)
 		clusters.append(clus[0])
 		dE = np.abs(prev_err - clus[1])
 		prev_err = clus[1]
@@ -65,7 +81,7 @@ def kMeans(DM, n):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def testK(k, DM, n):
+def testK(k, DM, n, shape):
 	
 	# Initialize centroids for spectral clustering
 	scc = np.zeros([k, m])
@@ -116,7 +132,7 @@ def testK(k, DM, n):
 	for col in range(n):
 		l.append(colors[clusterMe[col]])
 	
-	l = np.array(l, dtype='f').reshape([20, 20, 3])
+	l = np.array(l, dtype='f').reshape(shape)
 	
 	# For testing purposes:
 	print("")
@@ -135,97 +151,72 @@ def testK(k, DM, n):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
 def importData():
-    
-	# Get user-defined location
-	print("")
-	#lat = input("Enter a Latitude:  ")
-	#lon = input("Enter a Longitude: ")
-	
-	# Get current datetime
-	now = int(time.time())
-	print(now)
-	#start = 1369728000
-	#end = 1369789200
-	
-	n = noaa.NOAA()
-	observations = n.get_observations('15057','US',start='1369728000',end='1369789200')
-	for observation in observations:
-		print("")
-		print(observation)
-	
+
 	# Data import
-	#file = os.path.join('_test/20.png')
-	#API_Key = "00c59abbcf91d81f6c2c00eeeca50ab4"
-	#getMe = "http://history.openweathermap.org/data/2.5/history/city?lat={lat}&lon={lon}&type=hour&start={start}&end={end}"
-	#r = requests.get(getMe)
-	#r.encoding = "ISO-8859-1"
-	
-	#lenna = io.imread(file)
-	#shape = lenna.shape
+	file = os.path.join('_test/50.png')
+	lenna = io.imread(file)
+	shape = lenna.shape
 
 	# Contruction of data vectors to be used in the Diffusion Map
-	#x = []
-	#for i in range(0, shape[0]):
-	#	for j in range(0, shape[1]):
-	#		x.append([i, j, lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
-	
-	x=0		
-	
-	# ~~~~~~~~~~~~~ TEMPORARY FILE SAVE
-	#np.savetxt("./weatherData.txt", condition)
-	
-	return x
+	x = []
+	for i in range(0, shape[0]):
+		for j in range(0, shape[1]):
+			x.append([i, j, lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
+			
+	return [x, len(x), shape]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 	
 if __name__ == "__main__":
+
+	# Start time for benchmarking the code
+	import time
+	start_me = time.time()
+	
 	
 	# ~~~~~~~~~~~~~~~ TEMPORARY FIX: COMPLEX WARNING ISSUES IGNORED
 	import warnings
 	warnings.filterwarnings('ignore')
 	
+	
 	# Python Library Imports
-	import os, requests, time
+	import os
 	import numpy as np
 	from skimage import io
-	from noaa_sdk import noaa
 	from matplotlib import pyplot as plt
 	from copy import deepcopy
 
+	
 	# Adjustable model parameters
 	sig = 0.1; # Scaling parameter for Diffusion Map kernel
 	m = 5; # Number of eigenvalues to be included in Diffusion Map
-	t = 12; # Diffusion Map time step
+	t = 7; # Diffusion Map time step
+	Napp = 0.1 # Nystrom approximation factor
 	
-	# Gather the dataset
-	# ~~~~~~~ For now, use sample Image Data
-	x = importData()
-	exit()
-	n = len(x)
+	
+	# Gather the dataset and Nystrom approximation parameter
+	[x, n, shape] = importData()
+	ny = int(Napp*n)
+	if(ny < 1): ny = 0
 	
 	# Update screen with current time
-	print(n)
-	print("Imports Retrieved")
-	
-	input() #~~~~~~~~~~~~~~~~~~~~TEMPORARY BREAK
-	quit()
+	print("")
+	print("Time for Imports:")
+	print(time.time() - start_me)
 	
 	# Compute a diffusion map from the data
-	DM = diffusionMap(x, n, m, t, sig)
+	DM = diffusionMap(x, n, m, t, sig, ny)
 	
 	# Update screen with current time
 	print("")
-	print("Diffusion Map Calculated")
+	print("Time for Diffusion Map Calculation:")
+	print(time.time() - start_me)
 	
 	# Calculate "k" and clusters via k means
-	clusters = kMeans(DM, n)
+	clusters = kMeans(DM, n, shape)
 	
 	# Update screen with current time
 	print("")
-	print("K Means Calculated")
-	
-	# Update screen with current time
-	print("")
-	print("END PREDICTION")
-	print("")
+	print("Time for K Means Calculation:")
+	print(time.time() - start_me)

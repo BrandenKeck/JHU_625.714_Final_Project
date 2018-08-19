@@ -5,28 +5,36 @@
 ######################################################################################
 
 
-def diffusionMap(x, n, m, t, sig):
-
+def diffusionMap(x, n, m, t, sig, ny):
+	
 	# Construction of appropriate matrices for use in Diffusion Map algorithm
-	W = []
-	D = np.zeros([n, n])
-	for i in range(0, n):
-		dii = 0
-		for j in range(0, n):
+	
+	A = []
+	for i in range(0, ny):
+		for j in range(0, ny):
 			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
-			W.append(dist)
-			D[i,j] = 0
-			dii = dii + dist
-		D[i,i] = dii
+			A.append(dist)
+		print(i)
+	A = np.array(A).reshape([ny, ny])
+	Ainv = np.linalg.inv(A)
 			
-	# Finalization of diffusion matrix
-	W = np.array(W)
-	W = W.reshape(n, n)
-
-	# Eigen solutions using numpy library
-	invD = np.linalg.inv(D)
-	A = np.matmul(invD, W)
-	lam, evA = np.linalg.eig(A)
+	B = []
+	for i in range(ny, n):
+		for j in range(0, ny):
+			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
+			B.append(dist)
+		print(i)
+	B = np.array(B).reshape([(n-ny), ny])
+	Btran = np.transpose(B)
+	
+	C = np.matmul(B, np.matmul(Ainv, Btran))
+	W = np.concatenate((np.concatenate((A,Btran), axis=1), np.concatenate((B,C), axis=1)), axis=0)
+	
+	d = np.sum(W, axis=0)
+	Dinv = np.linalg.inv(np.diag(d))
+	
+	M = np.matmul(Dinv, W)
+	lam, evA = np.linalg.eig(M)
 
 	# Final diffusion map computation
 	DM = []
@@ -39,7 +47,7 @@ def diffusionMap(x, n, m, t, sig):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def kMeans(DM, n):
+def kMeans(DM, n, shape):
 	
 	# Begin with a k of 2 and step until an "elbow" is reached:
 	# Add a tolerance for the point in which error changes by too little to continue
@@ -50,7 +58,7 @@ def kMeans(DM, n):
 	prev_err = 1
 	clusters = []
 	while dE > tol or k < 5:
-		clus = testK(k, DM, n)
+		clus = testK(k, DM, n, shape)
 		clusters.append(clus[0])
 		dE = np.abs(prev_err - clus[1])
 		prev_err = clus[1]
@@ -65,7 +73,7 @@ def kMeans(DM, n):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def testK(k, DM, n):
+def testK(k, DM, n, shape):
 	
 	# Initialize centroids for spectral clustering
 	scc = np.zeros([k, m])
@@ -116,7 +124,7 @@ def testK(k, DM, n):
 	for col in range(n):
 		l.append(colors[clusterMe[col]])
 	
-	l = np.array(l, dtype='f').reshape([30, 30, 3])
+	l = np.array(l, dtype='f').reshape(shape)
 	
 	# For testing purposes:
 	print("")
@@ -137,7 +145,7 @@ def testK(k, DM, n):
 def importData():
 
 	# Data import
-	file = os.path.join('_test/30.png')
+	file = os.path.join('_test/500.png')
 	lenna = io.imread(file)
 	shape = lenna.shape
 
@@ -147,7 +155,7 @@ def importData():
 		for j in range(0, shape[1]):
 			x.append([i, j, lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
 			
-	return x
+	return [x, len(x), shape]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -158,9 +166,11 @@ if __name__ == "__main__":
 	import time
 	start_me = time.time()
 	
+	
 	# ~~~~~~~~~~~~~~~ TEMPORARY FIX: COMPLEX WARNING ISSUES IGNORED
 	import warnings
 	warnings.filterwarnings('ignore')
+	
 	
 	# Python Library Imports
 	import os
@@ -169,19 +179,17 @@ if __name__ == "__main__":
 	from matplotlib import pyplot as plt
 	from copy import deepcopy
 
+	
 	# Adjustable model parameters
 	sig = 0.1; # Scaling parameter for Diffusion Map kernel
 	m = 5; # Number of eigenvalues to be included in Diffusion Map
 	t = 12; # Diffusion Map time step
+	Napp = 0.01 # Nystrom approximation factor
 	
-	# Gather the dataset
-	# ~~~~~~~ For now, use sample Image Data
-	x = importData()
 	
-	#input() #~~~~~~~~~~~~~~~~~~~~TEMPORARY BREAK
-	#os.exit
-	
-	n = len(x)
+	# Gather the dataset and dataset information
+	[x, n, shape] = importData()
+	ny = int(Napp*n) #Nystrom approximation parameter
 	
 	# Update screen with current time
 	print("")
@@ -189,7 +197,7 @@ if __name__ == "__main__":
 	print(time.time() - start_me)
 	
 	# Compute a diffusion map from the data
-	DM = diffusionMap(x, n, m, t, sig)
+	DM = diffusionMap(x, n, m, t, sig, ny)
 	
 	# Update screen with current time
 	print("")
@@ -197,7 +205,7 @@ if __name__ == "__main__":
 	print(time.time() - start_me)
 	
 	# Calculate "k" and clusters via k means
-	clusters = kMeans(DM, n)
+	clusters = kMeans(DM, n, shape)
 	
 	# Update screen with current time
 	print("")
