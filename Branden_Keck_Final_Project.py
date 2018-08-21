@@ -157,8 +157,8 @@ def kMeans(k, DM, n, shape):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def analyzeClusters(clus):
-	bgCluster = clus[0,0]
+def analyzeClusters(clus, shape):
+	c = clus.reshape(shape)
 	
 	# get 2d cluster centers
 	
@@ -208,16 +208,15 @@ if __name__ == "__main__":
 	from copy import deepcopy
 	
 	# Define the dataset
-	files = ['_data/Set0/1.png', '_data/Set0/2.png', '_data/Set0/3.png', '_data/Set0/4.png', '_data/Set0/5.png']
-	#file = "_data/Set1min/1.png"
+	#files = ['_data/Set0/1.png', '_data/Set0/2.png', '_data/Set0/3.png', '_data/Set0/4.png', '_data/Set0/5.png']
+	files = ["_test/30.png"]
 	
 	# Adjustable model parameters
 	sig = 0.001 # Scaling parameter for Diffusion Map kernel
 	m = 2 # Number of eigenvalues to be included in Diffusion Map
 	t = 0.2 # Diffusion Map time step
 	k = 4 # K-Means Clustering constant
-	Napp = 25 # Nystrom approximation segment length
-	Ntol = 10000 # Nystrom tolerance for final matrix multiplication
+	a = 100 # Nystrom constant
 	numP = 2 # Number of future prediction images
 	
 	counter = 1
@@ -233,15 +232,15 @@ if __name__ == "__main__":
 		print(time.time() - start_me)
 		
 		# Compute a diffusion map from the data
-		if(Napp<2): Napp = 2
-		if(Napp>n): Napp = n
-		if(Napp>Ntol): Ntol = Napp
+		Napp = n # Nystrom approximation segment length
+		Ntol = 0 # Nystrom tolerance for final matrix multiplication
 		DM = diffusionMap(x, n, m, t, sig, Napp, Ntol)
 		
 		# Update screen with current time
 		print("")
 		print("Time for Diffusion Map Calculation:")
 		print(time.time() - start_me)
+		
 		
 		# Calculate "k" and clusters via k means
 		clusters = kMeans(k, DM, n, shape)
@@ -252,7 +251,7 @@ if __name__ == "__main__":
 		print(time.time() - start_me)
 		
 		# Get data cluster centers
-		analyzeClusters(clusters)
+		analyzeClusters(clusters, shape)
 		
 		counter = counter + 1
 	
