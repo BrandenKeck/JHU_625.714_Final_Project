@@ -14,27 +14,55 @@ def diffusionMap(x, n, m, t, sig, ny):
 		for j in range(0, ny):
 			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
 			A.append(dist)
-		print(i)
 	A = np.array(A).reshape([ny, ny])
 	Ainv = np.linalg.inv(A)
+	
+	print(A)
+	input()
 			
 	B = []
 	for i in range(ny, n):
 		for j in range(0, ny):
 			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
 			B.append(dist)
-		print(i)
 	B = np.array(B).reshape([(n-ny), ny])
 	Btran = np.transpose(B)
 	
+	print(B)
+	input()
+	
 	C = np.matmul(B, np.matmul(Ainv, Btran))
+	
+	print(C)
+	input()
+	
 	W = np.concatenate((np.concatenate((A,Btran), axis=1), np.concatenate((B,C), axis=1)), axis=0)
 	
+	print(W)
+	input()
+	
 	d = np.sum(W, axis=0)
+	
+	print(d)
+	input()
+	
 	Dinv = np.linalg.inv(np.diag(d))
 	
+	print(Dinv)
+	input()
+	
 	M = np.matmul(Dinv, W)
+	
+	print(M)
+	input()
+	
 	lam, evA = np.linalg.eig(M)
+	
+	print(lam)
+	input()
+	
+	print(evA)
+	input()
 
 	# Final diffusion map computation
 	DM = []
@@ -145,7 +173,7 @@ def testK(k, DM, n, shape):
 def importData():
 
 	# Data import
-	file = os.path.join('_test/500.png')
+	file = os.path.join('_test/10.png')
 	lenna = io.imread(file)
 	shape = lenna.shape
 
@@ -184,7 +212,7 @@ if __name__ == "__main__":
 	sig = 0.1; # Scaling parameter for Diffusion Map kernel
 	m = 5; # Number of eigenvalues to be included in Diffusion Map
 	t = 12; # Diffusion Map time step
-	Napp = 0.01 # Nystrom approximation factor
+	Napp = 0.5 # Nystrom approximation factor
 	
 	
 	# Gather the dataset and dataset information

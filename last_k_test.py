@@ -77,11 +77,38 @@ def diffusionMap(x, n, m, t, sig, ny, nytol):
 	
 	return DM
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+def kMeans(DM, n, shape):
+	
+	# Begin with a k of 2 and step until an "elbow" is reached:
+	# Add a tolerance for the point in which error changes by too little to continue
+	# Start with an arbitrary change in error that is greater than the tolerance
+	k = 2
+	tol = 0.0001
+	dE = 1
+	prev_err = 1
+	clusters = []
+	while dE > tol or k < 5:
+		clus = testK(k, DM, n, shape)
+		clusters.append(clus[0])
+		dE = np.abs(prev_err - clus[1])
+		prev_err = clus[1]
+		k = k + 1
+		
+		print("")
+		print("Hey there, here's your improvement in error")
+		print(dE)
+		input()
+		
+	return [k, clusters[len(clusters)-2]]
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def kMeans(k, DM, n, shape):
+def testK(k, DM, n, shape):
 	
 	# Initialize centroids for spectral clustering
 	scc = np.zeros([k, m])
@@ -100,7 +127,7 @@ def kMeans(k, DM, n, shape):
 
 	# Minimization 
 	dE = 10
-	tol = 0.0000001
+	tol = 0.0001
 	loopbreak = 0
 	while dE > tol:
 
@@ -123,13 +150,11 @@ def kMeans(k, DM, n, shape):
 		dE = np.abs(error - np.linalg.norm(np.subtract(scc, scc_old)))
 		error = np.linalg.norm(np.subtract(scc, scc_old))
 		
-		# Allow only one empty cluster
-		if(loophold < k-1):
+		if(loophold < 2):
 			dE = error+1
 		
-		# Break loop given no solution
 		loopbreak = loopbreak + 1
-		if(loopbreak > 1000):
+		if(loopbreak > 100):
 			dE = -1
 		
 	# Construction of test image
@@ -151,20 +176,7 @@ def kMeans(k, DM, n, shape):
 	plt.show()
 	input()
 	
-	# return [clusterMe, error] # Come back to this?
-	return clusterMe
-	
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-def analyzeClusters(clus):
-	bgCluster = clus[0,0]
-	
-	# get 2d cluster centers
-	
-	
-	
-	print("fin")
+	return [clusterMe, error]
 	
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -208,55 +220,41 @@ if __name__ == "__main__":
 	from copy import deepcopy
 	
 	# Define the dataset
-	files = ['_data/Set0/1.png', '_data/Set0/2.png', '_data/Set0/3.png', '_data/Set0/4.png', '_data/Set0/5.png']
-	#file = "_data/Set1min/1.png"
+	file = '_data/Set0/1.png'
 	
 	# Adjustable model parameters
 	sig = 0.001 # Scaling parameter for Diffusion Map kernel
 	m = 2 # Number of eigenvalues to be included in Diffusion Map
 	t = 0.2 # Diffusion Map time step
-	k = 4 # K-Means Clustering constant
-	Napp = 25 # Nystrom approximation segment length
-	Ntol = 10000 # Nystrom tolerance for final matrix multiplication
-	numP = 2 # Number of future prediction images
+	Napp = 50 # Nystrom approximation segment length
+	Ntol = 500 # Nystrom tolerance for final matrix multiplication
 	
-	counter = 1
-	for file in files:
-		print("Calculating for file #" + str(counter))
-	
-		# Gather the dataset and Nystrom approximation parameter
-		[x, n, shape] = importData(file)
-				
-		# Update screen with current time
-		print("")
-		print("Time for Imports:")
-		print(time.time() - start_me)
-		
-		# Compute a diffusion map from the data
-		if(Napp<2): Napp = 2
-		if(Napp>n): Napp = n
-		if(Napp>Ntol): Ntol = Napp
-		DM = diffusionMap(x, n, m, t, sig, Napp, Ntol)
-		
-		# Update screen with current time
-		print("")
-		print("Time for Diffusion Map Calculation:")
-		print(time.time() - start_me)
-		
-		# Calculate "k" and clusters via k means
-		clusters = kMeans(k, DM, n, shape)
-		
-		# Update screen with current time
-		print("")
-		print("Time for K Means Calculation:")
-		print(time.time() - start_me)
-		
-		# Get data cluster centers
-		analyzeClusters(clusters)
-		
-		counter = counter + 1
-	
+	# Gather the dataset and Nystrom approximation parameter
+	[x, n, shape] = importData(file)
+			
+	# Update screen with current time
 	print("")
-	print("-------------------")
-	print("SIMULATION COMPLETE")
+	print("Time for Imports:")
+	print(time.time() - start_me)
+	
+	# Compute a diffusion map from the data
+	if(Napp<2): Napp = 2
+	if(Napp>n): Napp = n
+	if(Napp>Ntol): Ntol = Napp
+	DM = diffusionMap(x, n, m, t, sig, Napp, Ntol)
+	
+	# Update screen with current time
+	print("")
+	print("Time for Diffusion Map Calculation:")
+	print(time.time() - start_me)
+	
+	# Calculate "k" and clusters via k means
+	clusters = kMeans(DM, n, shape)
+	
+	# Update screen with current time
+	print("")
+	print("Time for K Means Calculation:")
+	print(time.time() - start_me)
+	
+	# Get data cluster centers
 	

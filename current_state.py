@@ -4,61 +4,44 @@
 ######################################################################################
 ######################################################################################
 
-# Nystrom approximation
-def approximateNystrom(x, start, ny, nytol, n):
-	
-	# compute a minimum nystrom matrix size:
-	check = start
-	for i in range(start, n):
-		if(np.array(x[start]).all != np.array(x[i]).all):
-			check = i
-			break;
-	
-	# check that Nystrom Segment is at least as large as the minimum
-	if((start+ny)<check):
-		print("ERROR: Current Nystrom block value is insufficient.  The value will be increased to the next minimum value.  This may make the simulation computationally insufficient.")
-		end = check
-	else:
-		end = start + ny
-		
-	if(end>n): end = n
 
+	
+
+# Construction of the Diffusion Map via Nystrom Approximation
+def diffusionMap(x, n, m, t, sig, ny):
+	
+	print("") # Make room for benchmarking outputs...
+	
 	# Computation of the Sample matrix A
-	A = np.zeros([(end-start), (end-start)])
-	for i in range(start, end):
-		j = i
-		while j<end:
-			A[i-start,j-start] = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
-			if(i!=j):
-				A[j-start,i-start] = A[i-start,j-start]
+	A = []
+	i = 0
+	while i < ny:
+		j = 0
+		while j < ny:
+			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
+			A.append(dist)
 			j = j + 1
+		i = i + 1
 			
-	A = tf.convert_to_tensor(A)
+	A = tf.reshape(tf.convert_to_tensor(A), [ny, ny])
 	Ainv = tf.matrix_inverse(A)
 	
 	# Computation of the interaction between the remaining points and the sample
-	B = np.zeros([(n-end), (end-start)])
-	for i in range(end, n):
-		for j in range(start, end):
-			B[i-end, j-start] = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
-
-	B = tf.convert_to_tensor(B)
+	B = []
+	for i in range(ny, n):
+		for j in range(0, ny):
+			dist = np.exp(-1*np.linalg.norm(np.subtract(x[i],x[j]))/2*sig**2)
+			B.append(dist)
+		if i%1000 == 0 and i!=0:
+			print("Computation progress: " + str(int(100*i/n)) + "%")
+	B = tf.reshape(tf.convert_to_tensor(B), [(n-ny), ny])
 	Btran = tf.transpose(B)
 	
 	# Fill in the gaps via estimation of C and the overall matrix W
-	if((n-end-start) > nytol):
-		print("Next recursion level reached...")
-		C = approximateNystrom(x, end, ny, nytol, n)
-	else:
-		C = tf.matmul(B, tf.matmul(Ainv, Btran))
-	
+	print("")
+	print("Estimating the rest of the matrix.  This may take a moment...")
+	C = tf.matmul(B, tf.matmul(Ainv, Btran))
 	W = tf.concat([tf.concat([A,Btran], 1), tf.concat([B,C], 1)], 0)
-	return W
-
-# Construction of the Diffusion Map via Nystrom Approximation
-def diffusionMap(x, n, m, t, sig, ny, nytol):
-		
-	W = approximateNystrom(x, 0, ny, nytol, n)
 	
 	# Computation the diagonal matrix of row sums
 	d = tf.reduce_sum(W, 1)
@@ -77,11 +60,38 @@ def diffusionMap(x, n, m, t, sig, ny, nytol):
 	
 	return DM
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+def kMeans(DM, n, shape):
+	
+	# Begin with a k of 2 and step until an "elbow" is reached:
+	# Add a tolerance for the point in which error changes by too little to continue
+	# Start with an arbitrary change in error that is greater than the tolerance
+	k = 2
+	tol = 0.0001
+	dE = 1
+	prev_err = 1
+	clusters = []
+	while dE > tol or k < 5:
+		clus = testK(k, DM, n, shape)
+		clusters.append(clus[0])
+		dE = np.abs(prev_err - clus[1])
+		prev_err = clus[1]
+		k = k + 1
+		
+		print("")
+		print("Hey there, here's your improvement in error")
+		print(dE)
+		input()
+		
+	return [k, clusters[len(clusters)-2]]
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def kMeans(k, DM, n, shape):
+def testK(k, DM, n, shape):
 	
 	# Initialize centroids for spectral clustering
 	scc = np.zeros([k, m])
@@ -100,7 +110,7 @@ def kMeans(k, DM, n, shape):
 
 	# Minimization 
 	dE = 10
-	tol = 0.0000001
+	tol = 0.0001
 	loopbreak = 0
 	while dE > tol:
 
@@ -123,13 +133,11 @@ def kMeans(k, DM, n, shape):
 		dE = np.abs(error - np.linalg.norm(np.subtract(scc, scc_old)))
 		error = np.linalg.norm(np.subtract(scc, scc_old))
 		
-		# Allow only one empty cluster
-		if(loophold < k-1):
+		if(loophold < 2):
 			dE = error+1
 		
-		# Break loop given no solution
 		loopbreak = loopbreak + 1
-		if(loopbreak > 1000):
+		if(loopbreak > 100):
 			dE = -1
 		
 	# Construction of test image
@@ -151,28 +159,15 @@ def kMeans(k, DM, n, shape):
 	plt.show()
 	input()
 	
-	# return [clusterMe, error] # Come back to this?
-	return clusterMe
+	return [clusterMe, error]
 	
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 
-def analyzeClusters(clus):
-	bgCluster = clus[0,0]
-	
-	# get 2d cluster centers
-	
-	
-	
-	print("fin")
-	
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-def importData(file):
+def importData():
 
 	# Data import
-	file = os.path.join(file)
+	file = os.path.join('_test/100.png')
 	lenna = io.imread(file)
 	shape = lenna.shape
 
@@ -194,7 +189,7 @@ if __name__ == "__main__":
 	start_me = time.time()
 	
 	
-	# Suppress warnings due to complex eigenvalues
+	# ~~~~~~~~~~~~~~~ TEMPORARY FIX: COMPLEX WARNING ISSUES IGNORED
 	import warnings
 	warnings.filterwarnings('ignore')
 	
@@ -206,57 +201,55 @@ if __name__ == "__main__":
 	from skimage import io
 	from matplotlib import pyplot as plt
 	from copy import deepcopy
-	
-	# Define the dataset
-	files = ['_data/Set0/1.png', '_data/Set0/2.png', '_data/Set0/3.png', '_data/Set0/4.png', '_data/Set0/5.png']
-	#file = "_data/Set1min/1.png"
+
 	
 	# Adjustable model parameters
-	sig = 0.001 # Scaling parameter for Diffusion Map kernel
-	m = 2 # Number of eigenvalues to be included in Diffusion Map
-	t = 0.2 # Diffusion Map time step
-	k = 4 # K-Means Clustering constant
-	Napp = 25 # Nystrom approximation segment length
-	Ntol = 10000 # Nystrom tolerance for final matrix multiplication
-	numP = 2 # Number of future prediction images
+	sig = 0.01 # Scaling parameter for Diffusion Map kernel
+	m = 3 # Number of eigenvalues to be included in Diffusion Map
+	t = 12 # Diffusion Map time step
+	Napp = 0.01 # Nystrom approximation factor
+	Niter = 1 # Number of recursive Nystrom steps
 	
-	counter = 1
-	for file in files:
-		print("Calculating for file #" + str(counter))
 	
-		# Gather the dataset and Nystrom approximation parameter
-		[x, n, shape] = importData(file)
-				
-		# Update screen with current time
-		print("")
-		print("Time for Imports:")
-		print(time.time() - start_me)
-		
-		# Compute a diffusion map from the data
-		if(Napp<2): Napp = 2
-		if(Napp>n): Napp = n
-		if(Napp>Ntol): Ntol = Napp
-		DM = diffusionMap(x, n, m, t, sig, Napp, Ntol)
-		
-		# Update screen with current time
-		print("")
-		print("Time for Diffusion Map Calculation:")
-		print(time.time() - start_me)
-		
-		# Calculate "k" and clusters via k means
-		clusters = kMeans(k, DM, n, shape)
-		
-		# Update screen with current time
-		print("")
-		print("Time for K Means Calculation:")
-		print(time.time() - start_me)
-		
-		# Get data cluster centers
-		analyzeClusters(clusters)
-		
-		counter = counter + 1
+	# Gather the dataset and Nystrom approximation parameter
+	[x, n, shape] = importData()
+	ny = int(Napp*n)
+	if(ny < 2): ny = 2
+	if(ny > n): ny = n
 	
+	# compute a minimum nystrom matrix size:
+	check = 0
+	for i in range(2, len(x)):
+		if(np.array(x[0]).all != np.array(x[i]).all):
+			check = i
+			break;
+	
+	if(ny<check):
+		ny = check
+		print("ERROR: Nystrom approximation value must be a minimum of " + str(ny) + " to produce an invertible matrix from the given data.  Changing Nystrom value to " + str(ny))
+		print("Press any key to continue...")
+		input()
+			
+	# Update screen with current time
 	print("")
-	print("-------------------")
-	print("SIMULATION COMPLETE")
+	print("Time for Imports:")
+	print(time.time() - start_me)
+	
+	# Compute a diffusion map from the data
+	DM = diffusionMap(x, n, m, t, sig, ny)
+	
+	# Update screen with current time
+	print("")
+	print("Time for Diffusion Map Calculation:")
+	print(time.time() - start_me)
+	
+	# Calculate "k" and clusters via k means
+	clusters = kMeans(DM, n, shape)
+	
+	# Update screen with current time
+	print("")
+	print("Time for K Means Calculation:")
+	print(time.time() - start_me)
+	
+	# Get data cluster centers
 	
