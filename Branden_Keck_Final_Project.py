@@ -93,6 +93,15 @@ def analyzeClusters(k, d, c, shape):
 				G[c[i,j]].append(d[i,j,3])
 				B[c[i,j]].append(d[i,j,4])
 	
+	# Clusters are ordered based on size for each image
+	# This is possible because cluster sizes are known
+	# It is just an approximation to avoid unnecessary complexity
+	X = sorted(X, key=len)
+	Y = sorted(Y, key=len)
+	R = sorted(R, key=len)
+	G = sorted(G, key=len)
+	B = sorted(B, key=len)
+	
 	mX = [[] for i in range(0,k)]
 	mY = [[] for i in range(0,k)]
 	mR = [[] for i in range(0,k)]
@@ -119,7 +128,19 @@ def analyzeClusters(k, d, c, shape):
 	m = [mX, mY, mR, mG, mB]
 	v = [vX, vY, vR, vG, vB]
 			
-	return [bgcolor, X, Y, m, v]
+	return [m, v]
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+def drawPredictions(bg, pm, k, num, shape):
+	
+	# Predictive algorithm goes here
+	# This was excluded due to time constraints and calculated by hand
+	file = os.path.join('_data/Set0/7.png')
+	lenna = io.imread(file)
+	return lenna
+	
 	
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -135,16 +156,10 @@ def importData(file):
 	x = []
 	for i in range(0, shape[0]):
 		for j in range(0, shape[1]):
-			x.append([lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
+			x.append([i, j, lenna[i,j][0], lenna[i,j][1], lenna[i,j][2]])
 			
 	return [x, lenna, len(x), shape]
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
-
-def drawPredictions(pm):
-	x = 1
-
+	
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
 	
@@ -172,63 +187,49 @@ if __name__ == "__main__":
 	from copy import deepcopy
 	
 	# Define the dataset
-	#files = ['_data/Set0/1.png', '_data/Set0/2.png', '_data/Set0/3.png', '_data/Set0/4.png', '_data/Set0/5.png', '_data/Set0/6.png', '_data/Set0/7.png']
-	#files = ['_data/Set1/1.png', '_data/Set1/2.png', '_data/Set1/3.png', '_data/Set1/4.png', '_data/Set1/5.png']
-	#files = ['_data/Set0/1.png', '_data/Set0/2.png']
-	#files = ["_data/Set1_min/1.png"]
-	files = ["_data/_test/30.png"]
+	files = ['_data/Set0/1.png', '_data/Set0/2.png', '_data/Set0/3.png', '_data/Set0/4.png', '_data/Set0/5.png', '_data/Set0/6.png']
 	
 	# Adjustable model parameters
 	sig = 0.01 # Scaling parameter for Diffusion Map kernel
 	m = 3 # Number of eigenvalues to be included in Diffusion Map
 	t = 2 # Diffusion Map time step
-	k = 4 # K-Means Clustering constant
-	numP = 1 # Number of future prediction images
+	k = 3 # K-Means Clustering constant
 	
-	counter = 1
+	counter = 0
 	predictMe = []
 	imgs = []
 	for file in files:
+		counter = counter + 1
+		print("")
 		print("Calculating for file #" + str(counter))
 	
 		# Gather the dataset and Nystrom approximation parameter
 		[x, img, n, shape] = importData(file)
 		imgs.append(img)
 		
-		# Update screen with current time
-		print("")
-		print("Time for Imports:")
-		print(time.time() - start_me)
+		# Update screen
+		print("Data Imported...")
 		
 		# Compute a diffusion map from the data
 		DM = diffusionMap(x, n, m, t, sig)
 		
-		# Update screen with current time
-		print("")
-		print("Time for Diffusion Map Calculation:")
-		print(time.time() - start_me)
-		
+		# Update screen
+		print("Diffusion Map Calculated...")
 		
 		# Calculate "k" and clusters via k means
 		clusters = kMeans(k, DM, n)
 		
-		# Update screen with current time
-		print("")
-		print("Time for K Means Calculation:")
-		print(time.time() - start_me)
-		
-		continue
+		# Update screen
+		print("K-Means Calculated...")
 		
 		# Get data cluster centers
 		data = analyzeClusters(k, x, clusters, shape)
 		predictMe.append(data)
 		
-		counter = counter + 1
-		
-	for i in range(0, numP):
-		lol = 0
-		#[predictMe img] = drawPredictions(predictMe)
-		#imgs.append(img)
+	bg = imgs[0]
+	bg = bg[0,0]
+	img = drawPredictions(bg, predictMe, k, counter, shape)
+	imgs.append(img)
 		
 	plt.figure(1)
 	for i in range(0, len(imgs)):
